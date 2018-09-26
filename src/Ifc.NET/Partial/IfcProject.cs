@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace Ifc.NET
+namespace Ifc4
 {
     public partial class IfcProject
     {
@@ -11,23 +11,37 @@ namespace Ifc.NET
         {
         }
 
-        private CcIfcSites<Ifc.NET.IfcSite> m_Sites;
+        private CcIfcDocumentContainer<Ifc4.IfcDocumentInformation> m_DocumentContainer;
         [System.Xml.Serialization.XmlIgnore]
-        public CcIfcSites<Ifc.NET.IfcSite> Sites
+        public CcIfcDocumentContainer<Ifc4.IfcDocumentInformation> DocumentContainer
+        {
+            get
+            {
+                if (m_DocumentContainer == null)
+                {
+                    m_DocumentContainer = new CcIfcDocumentContainer<Ifc4.IfcDocumentInformation>(this);
+                }
+                return m_DocumentContainer;
+            }
+        }
+
+        private CcIfcSites<Ifc4.IfcSite> m_Sites;
+        [System.Xml.Serialization.XmlIgnore]
+        public CcIfcSites<Ifc4.IfcSite> Sites
         {
             get
             {
                 if (m_Sites == null)
                 {
-                    m_Sites = new CcIfcSites<Ifc.NET.IfcSite>(this);
+                    m_Sites = new CcIfcSites<Ifc4.IfcSite>(this);
                 }
                 return m_Sites;
             }
         }
 
-        private CcFacilities<Ifc.NET.CcFacility> m_Facilities;
+        private CcFacilities<Ifc4.CcFacility> m_Facilities;
         [System.Xml.Serialization.XmlIgnore]
-        public CcFacilities<Ifc.NET.CcFacility> Facilities
+        public CcFacilities<Ifc4.CcFacility> Facilities
         {
             get
             {
@@ -51,10 +65,16 @@ namespace Ifc.NET
 
             sw.Reset();
             sw.Start();
-            //this.Facilities.Read(this, false);
             this.Facilities.Read(this, true);
             sw.Stop();
             System.Diagnostics.Debug.WriteLine("Facilities.Read: " + sw.ElapsedMilliseconds + "ms");
+
+            sw.Reset();
+            sw.Start();
+            this.DocumentContainer.Read(this);
+            sw.Stop();
+            System.Diagnostics.Debug.WriteLine("Facilities.Read: " + sw.ElapsedMilliseconds + "ms");
+
 
             return true;
         }

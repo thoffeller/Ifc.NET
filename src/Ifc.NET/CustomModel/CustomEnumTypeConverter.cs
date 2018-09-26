@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.ComponentModel;
 
-namespace Ifc.NET.CustomModel
+namespace Ifc4.CustomModel
 {
-    class CustomLongNullableTypeConverter : System.ComponentModel.TypeConverter
+    public class CustomLongNullableTypeConverter : System.ComponentModel.TypeConverter
     {
         public CustomLongNullableTypeConverter()
         {
@@ -66,7 +66,7 @@ namespace Ifc.NET.CustomModel
         }
     }
 
-    class CustomBooleanNullableTypeConverter : System.ComponentModel.TypeConverter
+    public class CustomBooleanNullableTypeConverter : System.ComponentModel.TypeConverter
     {
 
         string[] trueArray = new string[] { Boolean.TrueString, "Wahr", "Ja", "1" };
@@ -124,7 +124,7 @@ namespace Ifc.NET.CustomModel
         }
     }
 
-    class CustomNullableTypeConverter<T> : System.ComponentModel.TypeConverter
+    public class CustomNullableTypeConverter<T> : System.ComponentModel.TypeConverter
     {
         public CustomNullableTypeConverter()
         {
@@ -171,7 +171,7 @@ namespace Ifc.NET.CustomModel
                         return result;
                 }
 
-                return Ifc.NET.CustomModel.CustomPropertyDescriptor.CustomChangeType<T>(value, typeof(T));
+                return Ifc4.CustomModel.CustomPropertyDescriptor.CustomChangeType<T>(value, typeof(T));
                 //return CustomChangeType<T>(value, typeof(T));
                 //return null;
             }
@@ -193,7 +193,7 @@ namespace Ifc.NET.CustomModel
 
     }
 
-    class CustomEnumTypeConverter : System.ComponentModel.TypeConverter
+    public class CustomEnumTypeConverter : System.ComponentModel.TypeConverter
 	{
         public CustomEnumTypeConverter()
 		{

@@ -1,12 +1,13 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Data;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
-
-namespace Ifc.NET
+namespace Ifc4
 {
-
     public class Workspace : BaseObject
     {
         private Workspace()
@@ -46,7 +47,7 @@ namespace Ifc.NET
         public delegate void PropertySelectedEventHandler(object sender, PropertySelectedEventArgs e);
         public event PropertySelectedEventHandler PropertySelected;
 
-        public delegate void MessageLoggedEventHandler(object sender, Ifc.NET.EventArgs.MessageLoggedEventArgs e);
+        public delegate void MessageLoggedEventHandler(object sender, Ifc4.EventArgs.MessageLoggedEventArgs e);
         public event MessageLoggedEventHandler MessageLogged; 
 
         public delegate void MessagesClearedEventHandler(object sender, MessageClearedEventArgs e);
@@ -119,7 +120,7 @@ namespace Ifc.NET
                 Workspace.CurrentWorkspace.AfterCommandExecuted(sender, new AfterCommandExecutedEventArgs(command));
         }
 
-        //public void RaiseMessageLogged(object sender, Ifc.NET.EventArgs.MessageLoggedEventArgs e)
+        //public void RaiseMessageLogged(object sender, Ifc4.EventArgs.MessageLoggedEventArgs e)
         //{
         //    RaiseMessageLogged(sender, e.Message, String.Empty, false);
         //}
@@ -139,7 +140,6 @@ namespace Ifc.NET
             RaiseMessageLogged(null, message, String.Empty, false, false);
         }
 
-
         public void RaiseMessageLogged(string message, bool doEvents)
         {
             RaiseMessageLogged(null, message, String.Empty, doEvents, false);
@@ -158,9 +158,9 @@ namespace Ifc.NET
             if (CurrentWorkspace.MessageLogged != null)
             {
                 if(addDateTime)
-                    CurrentWorkspace.MessageLogged(sender, new Ifc.NET.EventArgs.MessageLoggedEventArgs(Ifc.NET.EventArgs.MessageLoggedEventArgs.FormatMessage(message), EventArgs.MessageLogType.Info, doEvents, false));
+                    CurrentWorkspace.MessageLogged(sender, new Ifc4.EventArgs.MessageLoggedEventArgs(Ifc4.EventArgs.MessageLoggedEventArgs.FormatMessage(message), EventArgs.MessageLogType.Info, doEvents, false));
                 else
-                    CurrentWorkspace.MessageLogged(sender, new Ifc.NET.EventArgs.MessageLoggedEventArgs(message, EventArgs.MessageLogType.Info, doEvents, false));
+                    CurrentWorkspace.MessageLogged(sender, new Ifc4.EventArgs.MessageLoggedEventArgs(message, EventArgs.MessageLogType.Info, doEvents, false));
             }
         }
 
@@ -170,7 +170,7 @@ namespace Ifc.NET
             if (exc != null || Logging)
             {
                 if (CurrentWorkspace.MessageLogged != null)
-                    CurrentWorkspace.MessageLogged(sender, new Ifc.NET.EventArgs.MessageLoggedEventArgs(exc));
+                    CurrentWorkspace.MessageLogged(sender, new Ifc4.EventArgs.MessageLoggedEventArgs(exc));
             }
         }
 
@@ -180,7 +180,7 @@ namespace Ifc.NET
             if (exc != null || Logging)
             {
                 if (CurrentWorkspace.MessageLogged != null)
-                    CurrentWorkspace.MessageLogged(this, new Ifc.NET.EventArgs.MessageLoggedEventArgs(exc));
+                    CurrentWorkspace.MessageLogged(this, new Ifc4.EventArgs.MessageLoggedEventArgs(exc));
             }
         }
 
@@ -345,7 +345,7 @@ namespace Ifc.NET
             get { return Documents.ActiveDocument; }
         }
 
-        public Document OpenDocument(string fullName, Ifc.NET.Document.IfcFileType ifcFileType = Ifc.NET.Document.IfcFileType.IfcXml)
+        public Document OpenDocument(string fullName, Ifc4.Document.IfcFileType ifcFileType = Ifc4.Document.IfcFileType.Auto)
         {
             return Documents.Open(fullName, ifcFileType);
         }
@@ -355,11 +355,11 @@ namespace Ifc.NET
             return Documents.CreateDocument(fullName, overwriteIfExists);
         }
 
-        public Ifc.NET.IfcXML CreateIfcXmlFromStream(Stream stream)
+        public Ifc4.IfcXML CreateIfcXmlFromStream(Stream stream)
         {
             try
             {
-                Ifc.NET.IfcXML externalIfcXML = JV.XmlProcessing<Ifc.NET.IfcXML>.Read(stream);
+                Ifc4.IfcXML externalIfcXML = JV.XmlProcessing<Ifc4.IfcXML>.Read(stream);
                 return externalIfcXML;
             }
             catch (Exception exc)
@@ -376,21 +376,83 @@ namespace Ifc.NET
             return false;
         }
 
+        public class SaveResult
+        {
+            public SaveResultType Success { get; internal set; }
+            public string Message { get; internal set; }
+        }
+        public class SaveOptions
+        {
+            public SaveOptions()
+            {
+                InternalOverwrite = false;
+                InternalSaveAsNewFile = false;
+            }
+
+            internal bool InternalOverwrite { get; set; }
+            internal bool InternalSaveAsNewFile { get; set; }
+        }
+
+        public enum SaveResultType
+        {
+            Error,
+            Success,
+            MissingFileName,
+            NoActiveDocument,
+            WrongFileExtension,
+            ZipArchiveEntryAlreadyExists,
+        }
+
         public bool SaveDocument()
         {
-            if (Documents.ActiveDocument != null)
-                return Documents.ActiveDocument.Save();
+            SaveResult saveResult = SaveDocument(new SaveOptions());
+            return saveResult.Success == SaveResultType.Success;
 
-            return false;
+        }
+        public SaveResult SaveDocument(SaveOptions saveOptions)
+        {
+            if (Documents.ActiveDocument != null)
+                return Documents.ActiveDocument.Save(saveOptions);
+
+            return new SaveResult()
+            {
+                Success = SaveResultType.NoActiveDocument,
+                Message = "No active document found."
+            };
         }
 
         public bool SaveDocument(string fullName)
         {
-            if (Documents.ActiveDocument != null)
-                return Documents.ActiveDocument.SaveAs(fullName);
-
-            return false;
+            SaveResult saveResult = SaveDocument(fullName, new SaveOptions());
+            return saveResult.Success == SaveResultType.Success;
         }
+
+        public SaveResult SaveDocument(string fullName, SaveOptions saveOptions)
+        {
+            SaveResult saveResult = new SaveResult();
+            if (Documents.ActiveDocument == null)
+            {
+                saveResult.Success = SaveResultType.NoActiveDocument;
+                saveResult.Message = "No active document found.";
+            }
+            else
+            {
+                //if (!String.IsNullOrWhiteSpace(Documents.ActiveDocument.FullName) && Documents.ActiveDocument.FullName != fullName)
+                //{
+                //    // Datei wird unter einem anderem Namen abgespeichert
+                //    saveOptions.InternalSaveAsNewFile = true;
+                //}
+                if (String.IsNullOrWhiteSpace(Documents.ActiveDocument.FullName) || Documents.ActiveDocument.FullName != fullName)
+                {
+                    // Datei wird unter einem anderem Namen abgespeichert
+                    saveOptions.InternalSaveAsNewFile = true;
+                }
+                saveOptions.InternalOverwrite = true;
+                saveResult = Documents.ActiveDocument.SaveAs(fullName, saveOptions);
+            }
+            return saveResult;
+        }
+
 
         public void CloseDocument()
         {
@@ -517,10 +579,10 @@ namespace Ifc.NET
                 // bool validate = this.Validate(f0_Org);
                 System.IO.File.Copy(f0_Org, f0, true);
 
-                Ifc.NET.Document document = Ifc.NET.Workspace.CurrentWorkspace.OpenDocument(f0);
-                Ifc.NET.IfcXML ifcXML = document.IfcXmlDocument;
+                Ifc4.Document document = Ifc4.Workspace.CurrentWorkspace.OpenDocument(f0);
+                Ifc4.IfcXML ifcXML = document.IfcXmlDocument;
 
-                document.SaveAs(f0 + ".0");
+                document.SaveAs(f0 + ".0", new SaveOptions());
 
                 //Correction(f0 + ".0");
                 //validate = this.Validate(f0 + ".0");
@@ -554,12 +616,11 @@ namespace Ifc.NET
 
         private bool InternalCreateCafmConnectTestFile(string ifcFullName)
         {
-
             string schemaFullName;
-            Ifc.NET.Document document;
+            Ifc4.Document document;
 
             // create new ifc file
-            document = Ifc.NET.Workspace.CurrentWorkspace.CreateDocument(ifcFullName, true);
+            document = Ifc4.Workspace.CurrentWorkspace.CreateDocument(ifcFullName, true);
             document.MessageLogged += document_MessageLogged;
 
             // add project info
@@ -568,10 +629,10 @@ namespace Ifc.NET
             document.Project.LongName = "Cologne, Ehrenfelder Business Park";
             document.Project.Description = "Ehrenfelder Business Park";
 
-            Ifc.NET.IfcSite site;
-            Ifc.NET.IfcBuilding building;
-            Ifc.NET.IfcBuildingStorey buildingStorey;
-            Ifc.NET.IfcSpace space;
+            Ifc4.IfcSite site;
+            Ifc4.IfcBuilding building;
+            Ifc4.IfcBuildingStorey buildingStorey;
+            Ifc4.IfcSpace space;
 
             // --------------------------------------------------------------------------
             site = document.Project.Sites.AddNewSite();
@@ -582,10 +643,8 @@ namespace Ifc.NET
 
             for (int nBuilding = 0; nBuilding < 10; nBuilding++) // buildings
             {
-
                 building = site.Buildings.AddNewBuilding();
-                building.Name = "CEBP01T01";
-                building.Name = String.Format("Site:{0} Builidng:{1}", "1", nBuilding);
+                building.Name = String.Format("Site:{0} Building:{1}", "1", nBuilding);
                 building.LongName = "Tower 01";
                 building.Description = "Tower 01";
 
@@ -601,75 +660,6 @@ namespace Ifc.NET
                     }
                 }
             }
-
-            //// --------------------------------------------------------------------------
-            //building = site.Buildings.AddNewBuilding();
-            //building.Name = "CEBP01YCC";
-            //building.LongName = "Yellow Chinese Center";
-            //building.Description = "Yellow Chinese Center";
-
-            //for (int nStorey = 0; nStorey < 10; nStorey++) // storeys
-            //{
-            //    buildingStorey = building.BuildingStoreys.AddNewBuildingStorey();
-            //    buildingStorey.Name = String.Format("Storey:{0}", nStorey);
-
-            //    for (int nSpace = 0; nSpace < 3; nSpace++) // rooms
-            //    {
-            //        space = buildingStorey.Spaces.AddNewSpace();
-            //        space.Name = String.Format("Storey:{0} Space:{1}", nStorey, nSpace);
-            //    }
-            //}
-            //// --------------------------------------------------------------------------
-
-            ////// --------------------------------------------------------------------------
-            ////site = document.Project.Sites.AddNewSite();
-            ////site.Name = "CEBP01";
-            ////site.LongName = "Cologne, Ehrenfelder Tower";
-            ////site.Description = "Cologne Ehrenfelder Tower";
-            ////// --------------------------------------------------------------------------
-            ////building = site.Buildings.AddNewBuilding();
-            ////building.Name = "CEBP01T01";
-            ////building.LongName = "Tower 01";
-            ////building.Description = "Tower 01";
-
-            ////for (int nStorey = 0; nStorey < 10; nStorey++) // storeys
-            ////{
-            ////    buildingStorey = building.BuildingStoreys.AddNewStorey();
-            ////    buildingStorey.Name = String.Format("Storey:{0}", nStorey);
-
-            ////    for (int nSpace = 0; nSpace < 3; nSpace++) // rooms
-            ////    {
-            ////        space = buildingStorey.Spaces.AddNewSpace();
-            ////        space.Name = String.Format("Storey:{0} Space:{1}", nStorey, nSpace);
-            ////    }
-            ////}
-            ////// --------------------------------------------------------------------------
-            ////building = site.Buildings.AddNewBuilding();
-            ////building.Name = "CEBP01YCC";
-            ////building.LongName = "Yellow Chinese Center";
-            ////building.Description = "Yellow Chinese Center";
-
-            ////for (int nStorey = 0; nStorey < 10; nStorey++) // storeys
-            ////{
-            ////    buildingStorey = building.BuildingStoreys.AddNewStorey();
-            ////    buildingStorey.Name = String.Format("Storey:{0}", nStorey);
-
-            ////    for (int nSpace = 0; nSpace < 3; nSpace++) // rooms
-            ////    {
-            ////        space = buildingStorey.Spaces.AddNewSpace();
-            ////        space.Name = String.Format("Storey:{0} Space:{1}", nStorey, nSpace);
-            ////    }
-            ////}
-            ////// --------------------------------------------------------------------------
-
-
-            //CcPostalAddress postalAddress;
-            //postalAddress = document.PostalAddresses.AddNewPostalAddress();
-            //postalAddress.AddressLines = "eTASK Headquarter Wilhelm-Ruppert-Straße 38 Gebäude K15";
-            //postalAddress.Region = "NRW";
-            //postalAddress.Town = "Cologne";
-            //postalAddress.Country = "Germany";
-            //postalAddress.PostalCode = "51147";
 
             IfcPostalAddress postalAddress;
             postalAddress = new IfcPostalAddress();
@@ -688,14 +678,6 @@ namespace Ifc.NET
 
             document.IfcXmlDocument.Items.Add(postalAddress);
 
-
-            //postalAddress = document.PostalAddresses.AddNewPostalAddress();
-            //postalAddress.AddressLines = "Joachim Vollberg\r\nHadersleber Str. 28\r\n50825 Köln";
-            //postalAddress.Region = "NRW";
-            //postalAddress.Town = "Cologne";
-            //postalAddress.Country = "Germany";
-            //postalAddress.PostalCode = "51147";
-
             postalAddress = new IfcPostalAddress();
             postalAddress.AddressLines = new IfcPostalAddressAddressLines();
             postalAddress.AddressLines.IfcLabelwrapper = new List<IfcLabelwrapper>();
@@ -712,17 +694,11 @@ namespace Ifc.NET
 
             document.IfcXmlDocument.Items.Add(postalAddress);
 
-            //EntityComparer entityComparer = new EntityComparer();
-            //document.IfcXmlDocument.Items.Sort(entityComparer);
-
             try
             {
-
-                document.Save();
+                document.Save(new SaveOptions());
                 document.Close();
-
                 return true;
-
             }
             catch (Exception exc)
             {
@@ -739,14 +715,12 @@ namespace Ifc.NET
             {
                 document.MessageLogged -= document_MessageLogged;
             }
-
-
         }
 
         public bool CreateTestIfc(string ifcFullName)
         {
 
-            Ifc.NET.Document document = Ifc.NET.Workspace.CurrentWorkspace.CreateDocument(ifcFullName, true);
+            Ifc4.Document document = Ifc4.Workspace.CurrentWorkspace.CreateDocument(ifcFullName, true);
             document.MessageLogged += document_MessageLogged;
 
             if (String.IsNullOrEmpty(ifcFullName))
@@ -898,15 +872,13 @@ namespace Ifc.NET
 
             };
 
-            //Ifc.NET.IfcClassification ifcClassification = (Ifc.NET.IfcClassification)document.Classifications.AddNew();
-            Ifc.NET.IfcClassification ifcClassification = document.AddNew<IfcClassification>();
+            Ifc4.IfcClassification ifcClassification = document.AddNew<IfcClassification>();
             //ifcClassification.id = document.GetNextSid();
             ifcClassification.Edition = "Version 1.06";
             ifcClassification.EditionDate = "2014-08-14T09:39:57";
             ifcClassification.Name = "CAFM-Connect Katalog 2014";
 
-            // Ifc.NET.IfcRelAssociatesClassification ifcRelAssociatesClassification = (Ifc.NET.IfcRelAssociatesClassification)document.RelAssociatesClassifications.AddNew();
-            Ifc.NET.IfcRelAssociatesClassification ifcRelAssociatesClassification = document.AddNew<IfcRelAssociatesClassification>();
+            Ifc4.IfcRelAssociatesClassification ifcRelAssociatesClassification = document.AddNew<IfcRelAssociatesClassification>();
             //ifcRelAssociatesClassification.id = document.GetNextSid();
             ifcRelAssociatesClassification.GlobalId = "1XiFKGEHP6PxQPxDU2E3PA";
             ifcRelAssociatesClassification.Name = "CAFM-Connect Katalog 2014 zu IfcClassification";
@@ -914,7 +886,7 @@ namespace Ifc.NET
             {
                 Items = new List<IfcRoot>()
                 {
-                    new Ifc.NET.IfcProject(){@Ref = document.Project.Id}
+                    new Ifc4.IfcProject(){@Ref = document.Project.Id}
                 }
             };
 
@@ -936,12 +908,12 @@ namespace Ifc.NET
             try
             {
 
-                document.Save();
+                document.Save(new SaveOptions());
                 document.Close();
 
                 string message;
                 document.Open(ifcFullName, out message);
-                document.SaveAs(ifcFullName + ".0");
+                document.SaveAs(ifcFullName + ".0", new SaveOptions());
                 RaiseMessageLogged(this, System.IO.File.ReadAllText(document.FullName));
 
                 return true;
@@ -961,7 +933,7 @@ namespace Ifc.NET
 
         }
 
-        void document_MessageLogged(object sender, Ifc.NET.EventArgs.MessageLoggedEventArgs e)
+        void document_MessageLogged(object sender, Ifc4.EventArgs.MessageLoggedEventArgs e)
         {
             RaiseMessageLogged(sender, e.Message);
         }
